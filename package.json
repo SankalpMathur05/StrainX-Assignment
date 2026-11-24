@@ -4,9 +4,9 @@
   "private": true,
   "description": "Procurement quote comparison: like-for-like costs, risk flags and a recommendation a director can read in a minute.",
   "scripts": {
-    "dev": "concurrently -k -n web,api -c magenta,cyan \"next dev\" \"uv run uvicorn backend.app.main:app --reload --port 8000\"",
+    "dev": "concurrently -k -n web,api -c magenta,cyan \"next dev\" \"uv run uvicorn backend.app.main:app --reload --port 8765\"",
     "dev:web": "next dev",
-    "dev:api": "uv run uvicorn backend.app.main:app --reload --port 8000",
+    "dev:api": "uv run uvicorn backend.app.main:app --reload --port 8765",
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",

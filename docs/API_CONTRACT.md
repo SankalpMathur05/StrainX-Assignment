@@ -1,7 +1,7 @@
 # API contract (`/api/py/*`)
 
 Models: `backend/app/models.py` (Python) ↔ `lib/types.ts` (TS). All routes return JSON.
-Dev: FastAPI on `http://127.0.0.1:8000`, Next.js rewrites `/api/py/:path*` to it. Prod (Vercel): `api/index.py`.
+Dev: FastAPI on `http://127.0.0.1:8765`, Next.js rewrites `/api/py/:path*` to it. Prod (Vercel): `api/index.py`.
 
 | Method | Path | Body | Returns |
 |---|---|---|---|
