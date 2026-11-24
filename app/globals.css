@@ -1,0 +1,259 @@
+@import "tailwindcss";
+
+/* `dark:` utilities follow the .dark class that next-themes puts on <html>. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ---------------------------------------------------------------------------
+   Design tokens. Each pastel has a background and an "ink" (text) colour.
+   In dark mode the pair swaps: dark pastel background, light pastel text,
+   so the same `bg-mint text-mint-ink` classes keep their contrast in both themes.
+   --------------------------------------------------------------------------- */
+:root {
+  --bg: #f6f6f3;
+  --surface: #ffffff;
+  --surface-2: #efefeb;
+  --ink: #0b0b0f;
+  --muted: #55555f;
+  --line: #e2e1dc;
+  --focus: #312e81;
+
+  --mint: #d8f3dc;
+  --mint-ink: #1b4332;
+  --lavender: #e0e7ff;
+  --lavender-ink: #312e81;
+  --peach: #ffe5d9;
+  --peach-ink: #7c2d12;
+  --sky: #e0f2fe;
+  --sky-ink: #0c4a6e;
+  --rose: #ffe4e6;
+  --rose-ink: #881337;
+}
+
+.dark {
+  --bg: #0a0b0e;
+  --surface: #121419;
+  --surface-2: #1a1d24;
+  --ink: #f4f4f5;
+  --muted: #a3a3ad;
+  --line: #2a2d35;
+  --focus: #c7d2fe;
+
+  --mint: #1b4332;
+  --mint-ink: #d8f3dc;
+  --lavender: #312e81;
+  --lavender-ink: #e0e7ff;
+  --peach: #7c2d12;
+  --peach-ink: #ffe5d9;
+  --sky: #0c4a6e;
+  --sky-ink: #e0f2fe;
+  --rose: #881337;
+  --rose-ink: #ffe4e6;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+
+  --color-mint: var(--mint);
+  --color-mint-ink: var(--mint-ink);
+  --color-lavender: var(--lavender);
+  --color-lavender-ink: var(--lavender-ink);
+  --color-peach: var(--peach);
+  --color-peach-ink: var(--peach-ink);
+  --color-sky: var(--sky);
+  --color-sky-ink: var(--sky-ink);
+  --color-rose: var(--rose);
+  --color-rose-ink: var(--rose-ink);
+
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-space-grotesk), ui-sans-serif, system-ui, sans-serif;
+}
+
+@layer base {
+  html {
+    color-scheme: light;
+  }
+  html.dark {
+    color-scheme: dark;
+  }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+  /* One visible focus ring for every interactive element. */
+  :focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
+  /* Native <details> marker is replaced by a rotating chevron in components. */
+  summary {
+    list-style: none;
+    cursor: pointer;
+  }
+  summary::-webkit-details-marker {
+    display: none;
+  }
+  input[type="range"] {
+    accent-color: var(--ink);
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Small shared building blocks (kept few on purpose).
+   --------------------------------------------------------------------------- */
+@layer components {
+  /* Uppercase micro-label used above every number and section. */
+  .micro {
+    font-size: 0.6875rem;
+    line-height: 1rem;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .card {
+    border: 1px solid var(--line);
+    background: var(--surface);
+    border-radius: 1rem;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    min-height: 2.5rem;
+    padding: 0 1rem;
+    border-radius: 9999px;
+    border: 1px solid var(--line);
+    background: var(--surface);
+    color: var(--ink);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    transition: background-color 120ms, border-color 120ms, opacity 120ms;
+    cursor: pointer;
+  }
+  .btn:hover {
+    border-color: var(--ink);
+  }
+  .btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  .btn-primary {
+    background: var(--ink);
+    border-color: var(--ink);
+    color: var(--bg);
+  }
+  .btn-primary:hover {
+    opacity: 0.88;
+  }
+  .btn-danger {
+    color: var(--rose-ink);
+    background: var(--rose);
+    border-color: transparent;
+  }
+  .btn-danger:hover {
+    border-color: var(--rose-ink);
+  }
+
+  .input {
+    width: 100%;
+    min-height: 2.5rem;
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.625rem;
+    border: 1px solid var(--line);
+    background: var(--surface);
+    color: var(--ink);
+    font-size: 0.875rem;
+  }
+  .input:disabled {
+    opacity: 0.55;
+  }
+  textarea.input {
+    min-height: 5rem;
+    resize: vertical;
+  }
+
+  /* Big display numbers. */
+  .figure {
+    font-family: var(--font-display);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+  }
+
+  details[open] > summary .chevron {
+    transform: rotate(90deg);
+  }
+
+  /* Loading placeholder. */
+  .skeleton {
+    background: var(--surface-2);
+    border-radius: 0.5rem;
+    animation: pulse-soft 1.4s ease-in-out infinite;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .skeleton {
+      animation: none;
+    }
+  }
+}
+
+@keyframes pulse-soft {
+  50% {
+    opacity: 0.45;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Print: executive summary + comparison + risks on about one A4 page.
+   Elements to drop carry Tailwind's `print:hidden`. Printing always uses the
+   light palette, and rem-based sizes shrink by lowering the root font size.
+   --------------------------------------------------------------------------- */
+@media print {
+  @page {
+    size: A4;
+    margin: 10mm;
+  }
+  :root,
+  .dark {
+    --bg: #ffffff;
+    --surface: #ffffff;
+    --surface-2: #f2f2f2;
+    --ink: #000000;
+    --muted: #444444;
+    --line: #cccccc;
+    --mint: #d8f3dc;
+    --mint-ink: #1b4332;
+    --lavender: #e0e7ff;
+    --lavender-ink: #312e81;
+    --peach: #ffe5d9;
+    --peach-ink: #7c2d12;
+    --sky: #e0f2fe;
+    --sky-ink: #0c4a6e;
+    --rose: #ffe4e6;
+    --rose-ink: #881337;
+  }
+  html {
+    font-size: 10px;
+    color-scheme: light;
+  }
+  * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    box-shadow: none !important;
+  }
+  .card {
+    break-inside: avoid;
+  }
+}
