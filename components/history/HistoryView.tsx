@@ -3,10 +3,13 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import { RequisitionDetails } from "@/components/details/RequisitionDetails";
 import { QuoteEditor } from "@/components/history/QuoteEditor";
+import { QuoteViewer } from "@/components/history/QuoteViewer";
 import { QuotesTable } from "@/components/history/QuotesTable";
 import { RequisitionSwitcher } from "@/components/history/RequisitionSwitcher";
 import { RunsList } from "@/components/history/RunsList";
+import { CollapsibleSection } from "@/components/ui/CollapsibleSection";
 import { Notice } from "@/components/ui/Notice";
 import { Section } from "@/components/ui/Section";
 import { EmptyState, ErrorState, Skeleton } from "@/components/ui/States";
@@ -23,6 +26,7 @@ export function HistoryView() {
   const [loadError, setLoadError] = useState<unknown>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [editing, setEditing] = useState<Quote | "new" | null>(null);
+  const [viewing, setViewing] = useState<Quote | null>(null);
   // Bumping these re-fetches the requisition list / the selected requisition's quotes and runs.
   const [listVersion, setListVersion] = useState(0);
   const [detailVersion, setDetailVersion] = useState(0);
@@ -143,8 +147,12 @@ export function HistoryView() {
 
         {actionError && <Notice tone="rose">{actionError}</Notice>}
 
+        <CollapsibleSection index="01" title="Requisition details" id="requisition-details">
+          <RequisitionDetails requisition={selected} />
+        </CollapsibleSection>
+
         <Section
-          index="01"
+          index="02"
           title="Quotes"
           id="quotes"
           actions={
@@ -154,16 +162,29 @@ export function HistoryView() {
           }
         >
           {quotes ? (
-            <QuotesTable quotes={quotes} onEdit={(q) => setEditing(q)} onDelete={deleteQuote} />
+            <QuotesTable quotes={quotes} onView={(q) => setViewing(q)} onEdit={(q) => setEditing(q)} onDelete={deleteQuote} />
           ) : (
             <Skeleton className="h-40 w-full" />
           )}
         </Section>
 
-        <Section index="02" title="Saved comparison runs" id="runs">
+        <Section index="03" title="Saved comparison runs" id="runs">
           {runs ? <RunsList runs={runs} /> : <Skeleton className="h-24 w-full" />}
         </Section>
       </div>
+
+      {viewing && (
+        <QuoteViewer
+          key={viewing.id ?? viewing.label}
+          requisition={selected}
+          quote={viewing}
+          onClose={() => setViewing(null)}
+          onEdit={() => {
+            setViewing(null);
+            setEditing(viewing);
+          }}
+        />
+      )}
 
       {editing && (
         <QuoteEditor

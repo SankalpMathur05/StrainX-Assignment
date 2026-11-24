@@ -19,6 +19,25 @@ export function formatINR(n: number, decimals?: number): string {
   return `${sign}Rs ${body}`;
 }
 
+/** Amount in its own currency: INR → "Rs 3,850", anything else → "USD 78" / "USD 78.50". */
+export function formatMoney(n: number, currency: string): string {
+  const code = currency.trim().toUpperCase() || "INR";
+  if (code === "INR") return formatINR(n);
+  const abs = toPaise(n);
+  const dp = Number.isInteger(abs) ? 0 : 2;
+  return `${code} ${abs.toLocaleString("en-US", { minimumFractionDigits: dp, maximumFractionDigits: dp })}`;
+}
+
+/** Plain number with Indian grouping and float noise trimmed: 1234.5 → "1,234.5". */
+export function formatNumber(n: number): string {
+  return toPaise(n).toLocaleString("en-IN");
+}
+
+/** Percent keeping up to two decimals: 18 → "18%", 12.5 → "12.5%". */
+export function formatPctExact(n: number): string {
+  return `${formatNumber(n)}%`;
+}
+
 /** Signed variance: "+Rs 27,150" when over, "−Rs 20,050" when under, "Rs 0" when exact. */
 export function formatVariance(n: number, decimals?: number): string {
   const abs = toPaise(Math.abs(n));

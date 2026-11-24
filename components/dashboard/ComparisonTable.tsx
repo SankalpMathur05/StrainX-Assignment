@@ -15,6 +15,7 @@ import {
   TaxCell,
 } from "@/components/dashboard/cells";
 import { ScenarioBreakdown } from "@/components/dashboard/ScenarioBreakdown";
+import { QuoteDetailsDisclosure } from "@/components/details/QuoteDetailsDisclosure";
 import { TextList } from "@/components/ui/TextList";
 import { findQuote } from "@/lib/analysis";
 import type { CompareResult, Quote } from "@/lib/types";
@@ -130,6 +131,7 @@ export function ComparisonTable({ result, quotes }: Props) {
                 <ScenarioBreakdown costing={a.costing} unit={unit} />
                 <TextList title="Facts from the quote" items={a.facts} />
                 <TextList title="Assumptions made" items={a.assumptions} />
+                <QuoteDetailsDisclosure quote={findQuote(a, quotes)} />
               </div>
             </div>
           ))}

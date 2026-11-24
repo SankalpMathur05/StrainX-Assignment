@@ -11,6 +11,8 @@ import { PrioritySliders } from "@/components/dashboard/PrioritySliders";
 import { QuoteCards } from "@/components/dashboard/QuoteCards";
 import { RiskPanel } from "@/components/dashboard/RiskPanel";
 import { useDashboardData } from "@/components/dashboard/useDashboardData";
+import { RequisitionDetails } from "@/components/details/RequisitionDetails";
+import { CollapsibleSection } from "@/components/ui/CollapsibleSection";
 import { Notice } from "@/components/ui/Notice";
 import { Section } from "@/components/ui/Section";
 import { EmptyState, ErrorState } from "@/components/ui/States";
@@ -44,6 +46,9 @@ export function Dashboard() {
     );
   }
   if (!result || !requisitionId || !quotes) return <DashboardSkeleton />;
+
+  // Stored record (carries created/updated stamps); the engine's echo is the fallback.
+  const requisition = requisitions?.find((r) => r.id === requisitionId) ?? result.requisition;
 
   // The same inputs the engine just used — sent to the AI routes so they explain, not recalculate.
   const compare: CompareRequest = {
@@ -95,11 +100,15 @@ export function Dashboard() {
 
       <ExecutiveStrip result={result} requisitionId={requisitionId} />
 
-      <Section index="01" title="Your priorities" id="priorities" className="print:hidden">
+      <CollapsibleSection index="01" title="Requisition details" id="requisition-details">
+        <RequisitionDetails requisition={requisition} />
+      </CollapsibleSection>
+
+      <Section index="02" title="Your priorities" id="priorities" className="print:hidden">
         <PrioritySliders weights={data.weights} onChange={data.setWeights} />
       </Section>
 
-      <Section index="02" title="Comparison" id="comparison">
+      <Section index="03" title="Comparison" id="comparison">
         <div className="hidden md:block print:block">
           <ComparisonTable result={result} quotes={quotes} />
         </div>
@@ -108,11 +117,11 @@ export function Dashboard() {
         </div>
       </Section>
 
-      <Section index="03" title="Risks & questions" id="risks">
+      <Section index="04" title="Risks & questions" id="risks">
         <RiskPanel result={result} />
       </Section>
 
-      <Section index="04" title="AI insights" id="insights" className="print:hidden">
+      <Section index="05" title="AI insights" id="insights" className="print:hidden">
         <InsightsPanel compare={compare} analyses={result.analyses} />
       </Section>
 

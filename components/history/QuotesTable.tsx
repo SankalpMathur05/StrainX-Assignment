@@ -1,26 +1,26 @@
-import { formatDateLong, formatINR } from "@/lib/format";
+import { formatDateLong, formatMoney } from "@/lib/format";
 import { PRICING_UNIT_OPTIONS, SOURCE_OPTIONS, labelOf } from "@/lib/labels";
 import type { Quote } from "@/lib/types";
 
 interface Props {
   quotes: Quote[];
+  onView: (quote: Quote) => void;
   onEdit: (quote: Quote) => void;
   onDelete: (quote: Quote) => void;
 }
 
 /** "Rs 3,850 per pack" or "USD 78 per kg" — the price as the supplier wrote it. */
 function priceText(q: Quote): string {
-  const amount = q.currency.toUpperCase() === "INR" ? formatINR(q.price) : `${q.currency} ${q.price}`;
-  return `${amount} ${labelOf(PRICING_UNIT_OPTIONS, q.pricing_unit).toLowerCase()}`;
+  return `${formatMoney(q.price, q.currency)} ${labelOf(PRICING_UNIT_OPTIONS, q.pricing_unit).toLowerCase()}`;
 }
 
-export function QuotesTable({ quotes, onEdit, onDelete }: Props) {
+export function QuotesTable({ quotes, onView, onEdit, onDelete }: Props) {
   if (quotes.length === 0) {
     return <p className="card p-6 text-sm text-muted">No quotes yet. Add the first one — paste the supplier&apos;s message and let AI fill the form.</p>;
   }
   return (
     <div className="card overflow-x-auto">
-      <table className="w-full min-w-[640px] text-left text-sm">
+      <table className="w-full min-w-[720px] text-left text-sm">
         <thead>
           <tr className="border-b border-line">
             {["Quote", "Price", "Received via", "Valid until", ""].map((h, i) => (
@@ -45,6 +45,9 @@ export function QuotesTable({ quotes, onEdit, onDelete }: Props) {
               <td className="px-4 py-3">{q.valid_until ? formatDateLong(q.valid_until) : "Not stated"}</td>
               <td className="px-4 py-3">
                 <div className="flex justify-end gap-2">
+                  <button type="button" className="btn h-9 px-3" onClick={() => onView(q)} aria-label={`View all details of quote ${q.label} from ${q.supplier_name}`}>
+                    View
+                  </button>
                   <button type="button" className="btn h-9 px-3" onClick={() => onEdit(q)} aria-label={`Edit quote ${q.label} from ${q.supplier_name}`}>
                     Edit
                   </button>
