@@ -34,6 +34,10 @@ class LLMUnavailable(Exception):
 class LLMError(Exception):
     """Both the primary and the fallback model failed."""
 
+    def __init__(self, message: str, rate_limited: bool = False) -> None:
+        super().__init__(message)
+        self.rate_limited = rate_limited  # the last failure was Groq's per-minute limit
+
 
 class GroqLLM:
     def __init__(self, settings: Settings, client: Any | None = None) -> None:
@@ -84,7 +88,8 @@ class GroqLLM:
             return call(fallback), fallback
         except (groq.GroqError, ValueError) as exc:
             log.warning("Groq %s on %s failed (%s)", task, fallback, type(exc).__name__)
-            raise LLMError(f"{task}: {primary} and {fallback} both failed") from exc
+            rate_limited = isinstance(exc, groq.RateLimitError)
+            raise LLMError(f"{task}: {primary} and {fallback} both failed", rate_limited) from exc
 
 
 @lru_cache

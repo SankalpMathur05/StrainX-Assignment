@@ -42,6 +42,14 @@ AI_OFF_MESSAGE = (
     "All calculations, flags and recommendations still work without it."
 )
 AI_FAILED_MESSAGE = "The AI service did not respond. Calculations are unaffected — please try again shortly."
+AI_RATE_LIMITED_MESSAGE = (
+    "Groq's per-minute usage limit was reached. Wait about a minute and try again — "
+    "calculations, flags and the recommendation are unaffected."
+)
+
+
+def _ai_failed_message(exc: Exception) -> str:
+    return AI_RATE_LIMITED_MESSAGE if getattr(exc, "rate_limited", False) else AI_FAILED_MESSAGE
 
 SettingsDep = Annotated[Settings, Depends(get_settings)]
 RepoDep = Annotated[Repo, Depends(get_repo)]
@@ -259,8 +267,8 @@ def _extract(llm: GroqLLM, messages: list[prompts.Message], model: type[Requisit
         raw, model_used = llm.complete_json("extraction", messages)
     except LLMUnavailable:
         return ExtractResponse(available=False, message=AI_OFF_MESSAGE)
-    except LLMError:
-        return ExtractResponse(available=False, message=AI_FAILED_MESSAGE)
+    except LLMError as exc:
+        return ExtractResponse(available=False, message=_ai_failed_message(exc))
     fields, missing, ambiguities = prompts.parse_extraction(raw, model)
     return ExtractResponse(
         available=True, fields=fields, missing_fields=missing, ambiguities=ambiguities, model_used=model_used
@@ -300,8 +308,8 @@ def insights(body: InsightsRequest, settings: SettingsDep, llm: LLMDep) -> Insig
         draft = prompts.InsightsDraft.model_validate(raw)
     except LLMUnavailable:
         return fallback.model_copy(update={"message": AI_OFF_MESSAGE})
-    except (LLMError, ValidationError):
-        return fallback.model_copy(update={"message": AI_FAILED_MESSAGE})
+    except (LLMError, ValidationError) as exc:
+        return fallback.model_copy(update={"message": _ai_failed_message(exc)})
     return InsightsResponse(
         available=True,
         headline=draft.headline,
@@ -322,8 +330,8 @@ def chat(body: ChatRequest, settings: SettingsDep, repo: RepoDep, llm: LLMDep) -
         reply, model_used = llm.complete_text("chat", prompts.chat_messages(context, body.history, body.message))
     except LLMUnavailable:
         return ChatResponse(available=False, message=AI_OFF_MESSAGE)
-    except LLMError:
-        return ChatResponse(available=False, message=AI_FAILED_MESSAGE)
+    except LLMError as exc:
+        return ChatResponse(available=False, message=_ai_failed_message(exc))
     if body.requisition_id:
         repo.add_chat(ChatMessage(requisition_id=body.requisition_id, role="user", content=body.message))
         repo.add_chat(

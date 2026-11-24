@@ -249,8 +249,8 @@ def test_groq_falls_back_when_primary_raises() -> None:
     completions = FakeCompletions(failing={"openai/gpt-oss-20b"})
     data, model_used = _llm(completions).complete_json("extraction", [{"role": "user", "content": "JSON"}])
     assert data == {"ok": True}
-    assert model_used == "llama-3.1-8b-instant"
-    assert [c["model"] for c in completions.calls] == ["openai/gpt-oss-20b", "llama-3.1-8b-instant"]
+    assert model_used == "openai/gpt-oss-120b"
+    assert [c["model"] for c in completions.calls] == ["openai/gpt-oss-20b", "openai/gpt-oss-120b"]
 
 
 def test_groq_falls_back_on_invalid_json() -> None:
@@ -262,12 +262,27 @@ def test_groq_falls_back_on_invalid_json() -> None:
 
 def test_groq_chat_text_and_both_models_failing() -> None:
     completions = FakeCompletions(failing=set(), content="Quote A.")
-    assert _llm(completions).complete_text("chat", []) == ("Quote A.", "llama-3.3-70b-versatile")
+    assert _llm(completions).complete_text("chat", []) == ("Quote A.", "openai/gpt-oss-120b")
     assert completions.calls[0]["temperature"] == 0.3 and "response_format" not in completions.calls[0]
 
-    failing = FakeCompletions(failing={"llama-3.3-70b-versatile", "openai/gpt-oss-20b"})
+    failing = FakeCompletions(failing={"openai/gpt-oss-120b", "openai/gpt-oss-20b"})
     with pytest.raises(LLMError):
         _llm(failing).complete_text("chat", [])
+
+
+class RateLimitedCompletions(FakeCompletions):
+    """Every model answers 429, like Groq's free tier after a burst of calls."""
+
+    def create(self, **kwargs: Any) -> Any:
+        self.calls.append(kwargs)
+        request = httpx.Request("POST", "https://api.groq.com")
+        raise groq.RateLimitError("rate limited", response=httpx.Response(429, request=request), body=None)
+
+
+def test_groq_rate_limit_is_reported_as_such() -> None:
+    with pytest.raises(LLMError) as caught:
+        _llm(RateLimitedCompletions(failing=set())).complete_text("chat", [])
+    assert caught.value.rate_limited is True
 
 
 def test_groq_without_key_is_unavailable() -> None:

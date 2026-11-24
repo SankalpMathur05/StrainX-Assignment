@@ -24,11 +24,13 @@ SKIP_DOTENV_FLAG = "STRAINX_SKIP_DOTENV"  # set to 1 to ignore .env files (tests
 @dataclass(frozen=True)
 class Settings:
     groq_api_key: str | None = None
+    # Groq withdrew llama-3.3-70b-versatile and llama-3.1-8b-instant (NotFound on 24 Nov 2026),
+    # so every task uses the two gpt-oss models, each falling back to the other.
     groq_extraction_model: str = "openai/gpt-oss-20b"
-    groq_extraction_fallback_model: str = "llama-3.1-8b-instant"
+    groq_extraction_fallback_model: str = "openai/gpt-oss-120b"
     groq_insight_model: str = "openai/gpt-oss-120b"
-    groq_insight_fallback_model: str = "llama-3.3-70b-versatile"
-    groq_chat_model: str = "llama-3.3-70b-versatile"
+    groq_insight_fallback_model: str = "openai/gpt-oss-20b"
+    groq_chat_model: str = "openai/gpt-oss-120b"
     groq_chat_fallback_model: str = "openai/gpt-oss-20b"
     supabase_url: str | None = None
     supabase_service_role_key: str | None = None
