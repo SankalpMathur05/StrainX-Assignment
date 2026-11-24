@@ -28,10 +28,13 @@ from backend.app.models import (
     Unit,
 )
 from backend.app.repo import LocalJsonRepo, get_repo
-from backend.app.seed import SEED_QUOTE_IDS, SEED_REQUISITION_ID, seed_quotes, seed_requisition
+from backend.app.seed import SEED_QUOTE_IDS, SEED_REQUISITION_ID, SEED_SETS, seed_quotes, seed_requisition
 from backend.scripts.gen_seed_sql import SEED_SQL_PATH, build_seed_sql
 
 API = "/api/py"
+# Every seed requisition, newest first: PR-USP-1147 leads, so the dashboard opens on it.
+SEED_PR_NUMBERS = ["PR-USP-1147", "PR-MB-1143", "PR-USP-1138", "PR-QC-1132"]
+SEED_REQUISITION_IDS = [requisition.id for requisition, _ in SEED_SETS]
 
 NEW_REQUISITION = {
     "pr_number": "PR-TEST-1",
@@ -64,15 +67,21 @@ def test_health_reports_local_storage_and_no_ai(client: TestClient) -> None:
     }
 
 
-def test_fresh_store_has_seed_requisition_and_quotes(client: TestClient) -> None:
+def test_fresh_store_has_seed_requisitions_and_quotes(client: TestClient) -> None:
     requisitions = client.get(f"{API}/requisitions").json()
-    assert [r["pr_number"] for r in requisitions] == ["PR-USP-1147"]
+    assert [r["pr_number"] for r in requisitions] == SEED_PR_NUMBERS  # newest first
+    assert [r["id"] for r in requisitions] == SEED_REQUISITION_IDS
     assert requisitions[0]["id"] == SEED_REQUISITION_ID
+    assert requisitions[0]["created_at"] == "2026-11-24T09:00:00+05:30"  # the seed's own timestamp is kept
 
     quotes = client.get(f"{API}/requisitions/{SEED_REQUISITION_ID}/quotes").json()
     assert [q["label"] for q in quotes] == ["A", "B", "C", "D"]
     assert [q["id"] for q in quotes] == [SEED_QUOTE_IDS[label] for label in "ABCD"]
     assert quotes[1]["contradictions"]  # B's incl/extra GST contradiction survives the round trip
+
+    for requisition, seed_set_quotes in SEED_SETS[1:]:  # the sample requisitions come with their quotes
+        listed = client.get(f"{API}/requisitions/{requisition.id}/quotes").json()
+        assert [q["id"] for q in listed] == [q.id for q in seed_set_quotes]
 
 
 # ---------------------------------------------------------------------------
@@ -84,8 +93,8 @@ def test_requisition_crud(client: TestClient) -> None:
     assert created["item_name"] == "Agar Powder"
     assert created["created_at"] and created["updated_at"]
 
-    # newest first: the new requisition is listed before the seed
-    assert [r["id"] for r in client.get(f"{API}/requisitions").json()] == [req_id, SEED_REQUISITION_ID]
+    # newest first: the new requisition is listed before every seed requisition
+    assert [r["id"] for r in client.get(f"{API}/requisitions").json()] == [req_id, *SEED_REQUISITION_IDS]
 
     updated = client.put(f"{API}/requisitions/{req_id}", json={**NEW_REQUISITION, "approved_budget": 60000})
     assert updated.status_code == 200
@@ -169,7 +178,7 @@ def test_local_repo_persists_to_disk(tmp_path: Path) -> None:
     path = tmp_path / "db.json"
     LocalJsonRepo(path).create_requisition(Requisition(**NEW_REQUISITION))
     reopened = LocalJsonRepo(path)  # a new instance reads the same file
-    assert [r.pr_number for r in reopened.list_requisitions()] == ["PR-TEST-1", "PR-USP-1147"]
+    assert [r.pr_number for r in reopened.list_requisitions()] == ["PR-TEST-1", *SEED_PR_NUMBERS]
     assert not list(tmp_path.glob("*.tmp"))  # atomic write leaves no temp files behind
 
 

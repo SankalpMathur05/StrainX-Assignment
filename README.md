@@ -2,7 +2,10 @@
 
 Turns messy supplier quotes (email, WhatsApp, PDF, phone notes) into a like-for-like comparison,
 automatic risk flags and a recommendation a director can read in about a minute.
-Pre-loaded with **PR-USP-1147 – Yeast Extract Powder, Quotes A–D**; works for any purchase.
+Pre-loaded with **PR-USP-1147 – Yeast Extract Powder, Quotes A–D** (the task's data pack) plus three
+made-up sample purchases with messy quotes: ethanol 200 L (litres, bottles, freight threshold),
+nitrile gloves 100 boxes (count units, expired quote, MOQ) and peptone 10 kg (EUR import).
+Works for any purchase.
 
 **Prerequisites:** Node.js 20+ and [uv](https://docs.astral.sh/uv/getting-started/installation/) (uv fetches a suitable Python automatically).
 

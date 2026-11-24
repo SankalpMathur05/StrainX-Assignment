@@ -3,7 +3,8 @@
 One small JSON document holds every table as {table: {id: record}}. A lock serialises
 access between request threads, and every write goes to a temp file that atomically
 replaces the original, so a crash never leaves half-written JSON. A missing file is
-created and seeded with PR-USP-1147 + Quotes A-D (fixed seed ids).
+created and seeded with every seed set (PR-USP-1147 + Quotes A-D and the sample
+requisitions, fixed seed ids). An existing file is never re-seeded.
 """
 
 from __future__ import annotations
@@ -20,7 +21,7 @@ from pydantic import BaseModel
 
 from backend.app.models import ChatMessage, ComparisonRun, Quote, Requisition
 from backend.app.repo.base import label_sort_key, new_id, utc_now
-from backend.app.seed import seed_quotes, seed_requisition
+from backend.app.seed import all_seed_quotes, all_seed_requisitions
 
 M = TypeVar("M", bound=BaseModel)
 # table -> id -> record (JSON-safe dict). Dicts keep insertion order (also through JSON), and updates
@@ -35,11 +36,17 @@ def _stamped(model: M, record_id: str, created_at: Any) -> M:
 
 
 def _seed_data() -> Data:
+    """Every seed set, as supabase/seed.sql inserts it.
+
+    Requisitions keep their own created_at and are stored oldest first, so the newest-first
+    listing starts with PR-USP-1147. Quotes are stamped now, like the database defaults.
+    """
     now = utc_now()
-    requisition = seed_requisition().model_copy(update={"created_at": now, "updated_at": now})
-    quotes = [q.model_copy(update={"created_at": now, "updated_at": now}) for q in seed_quotes()]
+    requisitions = sorted(all_seed_requisitions(), key=lambda r: r.created_at or now)
+    requisitions = [r.model_copy(update={"updated_at": now}) for r in requisitions]
+    quotes = [q.model_copy(update={"created_at": now, "updated_at": now}) for q in all_seed_quotes()]
     return {
-        "requisitions": {str(requisition.id): requisition.model_dump(mode="json")},
+        "requisitions": {str(r.id): r.model_dump(mode="json") for r in requisitions},
         "quotes": {str(q.id): q.model_dump(mode="json") for q in quotes},
         "runs": {},
         "chat": {},
