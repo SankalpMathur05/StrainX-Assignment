@@ -24,21 +24,21 @@ interface Props {
   quotes: Quote[];
 }
 
+// Decision-first order: score, cost, budget, timing and risk come before the detail columns,
+// so the important ones stay visible on narrower screens before any horizontal scroll.
 const HEADERS = [
   "Pos",
   "Quote",
+  "Score",
   "Landed (worst case)",
   "vs Budget",
-  "Landed / unit",
-  "Pre-tax",
-  "GST / IGST (potential ITC)",
-  "Order qty",
   "Arrival",
-  "Payment",
-  "CoA",
-  "Brand",
   "Flags",
-  "Score",
+  "Landed / unit",
+  "Pre-tax · GST/IGST (potential ITC)",
+  "Order qty",
+  "Payment",
+  "CoA · Brand",
 ];
 
 export function ComparisonTable({ result, quotes }: Props) {
@@ -48,7 +48,7 @@ export function ComparisonTable({ result, quotes }: Props) {
   return (
     <div>
       <div className="card overflow-x-auto print:overflow-visible print:rounded-none print:border-0">
-        <table className="w-full min-w-[1100px] border-collapse text-left text-sm print:min-w-0 print:text-[8.5px]">
+        <table className="w-full min-w-[1000px] border-collapse text-left text-sm print:min-w-0 print:text-[8.5px]">
           <caption className="sr-only">
             Quotes ranked best first. Landed cost uses the worst-case tax reading at the order (MOQ) quantity.
           </caption>
@@ -75,38 +75,38 @@ export function ComparisonTable({ result, quotes }: Props) {
                     {top && <p className="micro mt-1 text-lavender-ink">Top pick</p>}
                   </th>
                   <td className="px-3 py-3 print:px-1 print:py-1">
+                    <ScoreBar analysis={a} top={top} />
+                  </td>
+                  <td className="px-3 py-3 print:px-1 print:py-1">
                     <LandedCell costing={a.costing} />
                   </td>
                   <td className="px-3 py-3 print:px-1 print:py-1">
                     <BudgetCell costing={a.costing} />
                   </td>
                   <td className="px-3 py-3 print:px-1 print:py-1">
+                    <ArrivalCell delivery={a.delivery} />
+                  </td>
+                  <td className="w-28 px-3 py-3 print:px-1 print:py-1">
+                    <FlagCounts analysis={a} />
+                  </td>
+                  <td className="px-3 py-3 print:px-1 print:py-1">
                     <PerUnitCell costing={a.costing} unit={unit} />
                   </td>
                   <td className="px-3 py-3 print:px-1 print:py-1">
                     <PreTaxCell costing={a.costing} />
-                  </td>
-                  <td className="px-3 py-3 print:px-1 print:py-1">
-                    <TaxCell costing={a.costing} />
+                    <div className="mt-1">
+                      <TaxCell costing={a.costing} />
+                    </div>
                   </td>
                   <td className="px-3 py-3 print:px-1 print:py-1">
                     <OrderQtyCell costing={a.costing} unit={unit} />
                   </td>
+                  <td className="max-w-40 px-3 py-3 text-xs print:px-1 print:py-1">{quote?.payment_terms || "—"}</td>
                   <td className="px-3 py-3 print:px-1 print:py-1">
-                    <ArrivalCell delivery={a.delivery} />
-                  </td>
-                  <td className="max-w-44 px-3 py-3 text-xs print:px-1 print:py-1">{quote?.payment_terms || "—"}</td>
-                  <td className="px-3 py-3 print:px-1 print:py-1">
-                    <CoaChip quote={quote} />
-                  </td>
-                  <td className="px-3 py-3 print:px-1 print:py-1">
-                    <BrandChip quote={quote} />
-                  </td>
-                  <td className="px-3 py-3 print:px-1 print:py-1">
-                    <FlagCounts analysis={a} />
-                  </td>
-                  <td className="px-3 py-3 print:px-1 print:py-1">
-                    <ScoreBar analysis={a} top={top} />
+                    <div className="flex flex-col items-start gap-1">
+                      <CoaChip quote={quote} />
+                      <BrandChip quote={quote} />
+                    </div>
                   </td>
                 </tr>
               );
