@@ -192,7 +192,8 @@ def test_chat_persists_user_and_assistant_messages(
     task, messages = fake_llm.calls[0]
     assert task == "chat"
     assert [m["role"] for m in messages] == ["system", "assistant", "user"]
-    assert "That is not in the data." in messages[0]["content"]
+    system = messages[0]["content"]
+    assert "conversational" in system and "Never do arithmetic" in system  # friendly, but no maths
 
 
 def test_chat_without_requisition_id_is_not_persisted(
@@ -263,11 +264,33 @@ def test_groq_falls_back_on_invalid_json() -> None:
 def test_groq_chat_text_and_both_models_failing() -> None:
     completions = FakeCompletions(failing=set(), content="Quote A.")
     assert _llm(completions).complete_text("chat", []) == ("Quote A.", "openai/gpt-oss-120b")
-    assert completions.calls[0]["temperature"] == 0.3 and "response_format" not in completions.calls[0]
+    assert completions.calls[0]["temperature"] == 0.5 and "response_format" not in completions.calls[0]
 
     failing = FakeCompletions(failing={"openai/gpt-oss-120b", "openai/gpt-oss-20b"})
     with pytest.raises(LLMError):
         _llm(failing).complete_text("chat", [])
+
+
+def test_chat_context_is_compact_and_keeps_engine_numbers() -> None:
+    from backend.app import engine
+    from backend.app.models import CompareRequest
+    from backend.app.seed import seed_quotes
+
+    request = CompareRequest(requisition=seed_requisition(), quotes=seed_quotes())
+    result = engine.compare(request)
+    digest = prompts.chat_context(request, result)
+    # Much smaller than the JSON context (Groq free tier: 8,000 tokens per minute per model)...
+    assert len(digest) < 0.6 * len(prompts._json(prompts.ai_context(request, result)))
+    # ...but still carries the figures a director asks about, so replies stay grounded.
+    for figure in ["Rs 2,27,150", "Rs 4,47,456.16", "Rs 2,30,978.08", "Rs 1,79,950", "Rs 34,650"]:
+        assert figure in digest
+    assert ungrounded_numbers("A lands at Rs 2,27,150, C at Rs 4,47,456.16.", digest) == []
+
+
+def test_chat_uses_low_reasoning_effort_on_gpt_oss() -> None:
+    completions = FakeCompletions(failing=set(), content="Hi!")
+    _llm(completions).complete_text("chat", [])
+    assert completions.calls[0]["reasoning_effort"] == "low"
 
 
 class RateLimitedCompletions(FakeCompletions):

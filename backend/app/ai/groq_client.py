@@ -23,7 +23,8 @@ log = logging.getLogger(__name__)
 Task = Literal["extraction", "insight", "chat"]
 T = TypeVar("T")
 
-TEMPERATURE: dict[Task, float] = {"extraction": 0.0, "insight": 0.0, "chat": 0.3}
+# Chat is warmer so replies read naturally; numbers stay pinned by the prompt + grounding check.
+TEMPERATURE: dict[Task, float] = {"extraction": 0.0, "insight": 0.0, "chat": 0.5}
 TIMEOUT_SECONDS = 12.0  # x2 (primary + fallback) stays inside Vercel's 30 s function limit
 
 
@@ -68,6 +69,8 @@ class GroqLLM:
 
     def _create(self, task: Task, model: str, messages: list[dict[str, str]], json_mode: bool) -> str:
         extra: dict[str, Any] = {"response_format": {"type": "json_object"}} if json_mode else {}
+        if task == "chat" and model.startswith("openai/gpt-oss"):
+            extra["reasoning_effort"] = "low"  # quicker replies, fewer tokens against the per-minute limit
         response = self._client.chat.completions.create(  # type: ignore[union-attr]
             model=model, messages=messages, temperature=TEMPERATURE[task], **extra
         )

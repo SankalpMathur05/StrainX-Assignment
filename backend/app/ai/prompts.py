@@ -16,12 +16,13 @@ from pydantic import BaseModel, Field, TypeAdapter, ValidationError
 from pydantic.fields import FieldInfo
 
 from backend.app.models import ChatTurn, CompareRequest, CompareResult, Quote, Requisition
+from backend.app.summary import format_date, format_inr, format_qty
 
 Message = dict[str, str]
 
 # Set by the server, never by the model.
 SERVER_FIELDS = {"id", "requisition_id", "label", "raw_text", "created_at", "updated_at"}
-MAX_CHAT_HISTORY = 10  # turns sent back to the model
+MAX_CHAT_HISTORY = 8  # turns sent back to the model (each turn costs tokens on every message)
 
 # Short guidance for fields whose meaning is not obvious from the name.
 FIELD_HINTS = {
@@ -279,15 +280,95 @@ def insight_messages(context: dict[str, Any]) -> list[Message]:
 
 
 CHAT_SYSTEM = f"""\
-You answer a procurement officer's questions about one purchase requisition and its supplier quotes.
-The data below is the only source of truth: the engine's costs, delivery dates, flags, assumptions, \
-scores and recommendation, plus each quote's terms.
-- Answer only from this data. If the answer is not in it, say "That is not in the data."
-{_NUMBER_RULES}
-- Be concise: at most 5 short sentences or bullet points. Plain text, no tables."""
+You are the purchase team's assistant inside a quote-comparison tool, chatting with a procurement \
+officer or company director about one purchase requisition and its supplier quotes.
+
+How to talk:
+- Be conversational and natural, like a helpful colleague. If greeted, greet back warmly and offer \
+what you can help with (e.g. the recommendation, a supplier's risks, what to ask suppliers).
+- Follow the conversation: use earlier messages to understand follow-ups like "and B?" or "why?".
+- Match the length to the question: a sentence or two for simple ones, a short explanation or a few \
+bullets for comparisons. Plain text, no tables or headings.
+- If a question is ambiguous, ask a short clarifying question instead of guessing.
+
+What you may say:
+- Facts about THIS purchase (costs, dates, flags, scores, the recommendation, quote terms) must come \
+from the data below. The engine's numbers are final; explain them, don't recalculate them.
+- If something isn't in the data, say so plainly and suggest what to ask the supplier.
+- You may explain general procurement ideas in plain words (input tax credit, CIF, MOQ, advance \
+payment risk, how to negotiate), but never present them as facts about these quotes.
+{_NUMBER_RULES}"""
 
 
-def chat_messages(context: dict[str, Any], history: list[ChatTurn], question: str) -> list[Message]:
-    system = f"{CHAT_SYSTEM}\n\nData (JSON):\n{_json(context)}"
+def _yes(flag: bool) -> str:
+    return "yes" if flag else "no"
+
+
+def chat_context(request: CompareRequest, result: CompareResult) -> str:
+    """Plain-text digest of the engine output for chat.
+
+    Groq's free tier allows 8,000 tokens per minute per model. The JSON context (`ai_context`)
+    is ~6k tokens, which allowed about one chat message a minute; this digest carries the same
+    engine numbers in a fraction of the size, so a conversation can keep going.
+    """
+    req = result.requisition
+    unit = req.unit.value
+    quotes = {q.label: q for q in request.quotes}
+    lines = [
+        f"PURCHASE {req.pr_number}: {req.item_name}, {format_qty(req.required_quantity)} {unit} needed at "
+        f"{req.site} by {format_date(req.need_by_date)}; approved budget {format_inr(req.approved_budget)}; "
+        f"today is {format_date(result.reference_date)}.",
+        f"Spec: {req.specification or '-'} | CoA mandatory: {_yes(req.coa_mandatory)} | "
+        f"named brand required: {_yes(req.require_named_brand)}" + (f" | note: {req.quality_notes}" if req.quality_notes else ""),
+        f"RECOMMENDATION: {result.recommendation.rationale}",
+        *(f"  caveat: {c}" for c in result.recommendation.caveats),
+        "QUOTES (best first):",
+    ]
+    for a in result.analyses:
+        q, cost, d = quotes.get(a.label), a.costing, a.delivery
+        source = f" ({q.supplier_location}, via {q.source_channel.value.lower()})" if q else ""
+        lines.append(
+            f"#{a.rank} Quote {a.label} {a.supplier_name}{source}: score {a.score.final} "
+            f"(shown {a.score.display:.1f}/100), {a.critical_count} critical / {a.warning_count} warning flags"
+        )
+        if not cost.comparable:
+            lines.append("  cost: not comparable - " + "; ".join(cost.notes))
+        for s in cost.scenarios:
+            b = s.commitment
+            freight = "unknown" if b.freight_unknown else format_inr(b.freight_inr)
+            duty = f", customs duty {format_inr(b.customs_duty_inr)}" if b.customs_duty_inr else ""
+            lines.append(
+                f"  {s.description}: landed {format_inr(b.total_landed_inr)} for {format_qty(b.quantity)} {unit} "
+                f"(pre-tax {format_inr(b.goods_pre_tax_inr)}, GST/IGST {format_inr(b.recoverable_tax_inr)}{duty}, "
+                f"freight {freight}; {format_inr(b.unit_cost_landed)} per {unit} needed)"
+            )
+            if cost.moq_applies:
+                lines.append(f"    if MOQ waived: {format_inr(s.required_only.total_landed_inr)} for "
+                             f"{format_qty(s.required_only.quantity)} {unit}")
+        if cost.worst_case_landed_inr is not None and cost.budget_variance_inr is not None:
+            v = cost.budget_variance_inr
+            lines.append(f"  worst case {format_inr(cost.worst_case_landed_inr)}: "
+                         f"{format_inr(abs(v))} {'over' if v > 0 else 'under'} budget")
+        if d.latest_arrival:
+            when = (format_date(d.latest_arrival) if d.earliest_arrival in (None, d.latest_arrival)
+                    else f"{format_date(d.earliest_arrival)} to {format_date(d.latest_arrival)}")
+            lines.append(f"  arrives {when}; buffer {d.buffer_days} days before need-by")
+        if q:
+            lines.append(
+                f"  terms: {q.price:g} {q.currency} {q.pricing_unit.value}; payment '{q.payment_terms or '-'}'; "
+                f"valid until {format_date(q.valid_until) if q.valid_until else 'not stated'}; "
+                f"CoA {q.coa_status.value}; brand {q.brand_name or 'not named'} ({q.brand_status.value})"
+            )
+        lines += [f"  {f.severity.value}: {f.message}" for f in a.flags]
+        if a.assumptions:
+            lines.append("  assumed: " + " | ".join(a.assumptions))
+        if a.questions:
+            lines.append("  ask supplier: " + " | ".join(a.questions))
+    lines.append("ENGINE RULES: " + " | ".join(result.global_assumptions))
+    return "\n".join(lines)
+
+
+def chat_messages(context: str, history: list[ChatTurn], question: str) -> list[Message]:
+    system = f"{CHAT_SYSTEM}\n\nData:\n{context}"
     turns: list[Message] = [{"role": t.role, "content": t.content} for t in history[-MAX_CHAT_HISTORY:]]
     return [{"role": "system", "content": system}, *turns, {"role": "user", "content": question}]

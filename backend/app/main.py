@@ -325,7 +325,7 @@ def chat(body: ChatRequest, settings: SettingsDep, repo: RepoDep, llm: LLMDep) -
     if body.requisition_id:
         _require_requisition(repo, body.requisition_id)
     result = engine.compare(body.compare, settings.reference_date)
-    context = prompts.ai_context(body.compare, result)
+    context = prompts.chat_context(body.compare, result)  # compact digest: keeps chat under Groq's per-minute limit
     try:
         reply, model_used = llm.complete_text("chat", prompts.chat_messages(context, body.history, body.message))
     except LLMUnavailable:
